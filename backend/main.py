@@ -19,8 +19,12 @@ from starlette.middleware.sessions import SessionMiddleware
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
+from datetime import datetime
+
+from sqlmodel import select
+
 from auth import get_credentials, require_session, router as auth_router
-from db import init_db
+from db import Upload, get_session, init_db
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -141,6 +145,29 @@ def _build_youtube_metadata(caption: str | None, uploader: str | None, source_ur
     return title, description, tags
 
 
+def _record_upload(
+    *,
+    instagram_url: str,
+    uploader: str | None,
+    title: str | None,
+    youtube_video_id: str | None,
+    status: str,
+    error_message: str | None,
+) -> None:
+    with get_session() as s:
+        s.add(
+            Upload(
+                instagram_url=instagram_url,
+                uploader=uploader,
+                title=title,
+                youtube_video_id=youtube_video_id,
+                status=status,
+                error_message=error_message,
+            )
+        )
+        s.commit()
+
+
 @app.post("/upload", response_model=UploadResponse)
 def upload_to_youtube(req: UploadRequest, _: str = Depends(require_session)):
     safe_name = Path(req.filename).name
@@ -152,6 +179,8 @@ def upload_to_youtube(req: UploadRequest, _: str = Depends(require_session)):
         req.caption, req.uploader, req.instagram_url
     )
 
+    video_id: str | None = None
+    error: str | None = None
     try:
         creds = get_credentials()
         yt = build("youtube", "v3", credentials=creds, cache_discovery=False)
@@ -177,20 +206,85 @@ def upload_to_youtube(req: UploadRequest, _: str = Depends(require_session)):
         while response is None:
             _status, response = request_yt.next_chunk()
         video_id = response["id"]
-    except HTTPException:
+    except HTTPException as e:
+        error = e.detail if isinstance(e.detail, str) else str(e.detail)
+        _record_upload(
+            instagram_url=req.instagram_url,
+            uploader=req.uploader,
+            title=title,
+            youtube_video_id=None,
+            status="failed",
+            error_message=error,
+        )
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"YouTube upload failed: {e}")
+        error = f"YouTube upload failed: {e}"
+        _record_upload(
+            instagram_url=req.instagram_url,
+            uploader=req.uploader,
+            title=title,
+            youtube_video_id=None,
+            status="failed",
+            error_message=error,
+        )
+        raise HTTPException(status_code=502, detail=error)
     finally:
         try:
             file_path.unlink(missing_ok=True)
         except Exception:
             pass
 
+    _record_upload(
+        instagram_url=req.instagram_url,
+        uploader=req.uploader,
+        title=title,
+        youtube_video_id=video_id,
+        status="success",
+        error_message=None,
+    )
+
     return UploadResponse(
         youtube_video_id=video_id,
         youtube_url=f"https://youtube.com/shorts/{video_id}",
     )
+
+
+class UploadHistoryItem(BaseModel):
+    id: int
+    instagram_url: str
+    uploader: str | None
+    title: str | None
+    youtube_video_id: str | None
+    youtube_url: str | None
+    status: str
+    error_message: str | None
+    created_at: datetime
+
+
+@app.get("/uploads", response_model=list[UploadHistoryItem])
+def list_uploads(_: str = Depends(require_session), limit: int = 50):
+    with get_session() as s:
+        rows = s.exec(
+            select(Upload).order_by(Upload.created_at.desc()).limit(limit)
+        ).all()
+    return [
+        UploadHistoryItem(
+            id=r.id,
+            instagram_url=r.instagram_url,
+            uploader=r.uploader,
+            title=r.title,
+            youtube_video_id=r.youtube_video_id,
+            youtube_url=(
+                f"https://youtube.com/shorts/{r.youtube_video_id}"
+                if r.youtube_video_id
+                else None
+            ),
+            status=r.status,
+            error_message=r.error_message,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
 
 
 @app.get("/")

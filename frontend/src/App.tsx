@@ -26,6 +26,18 @@ type AuthStatus = {
   channel_id: string | null
 }
 
+type HistoryItem = {
+  id: number
+  instagram_url: string
+  uploader: string | null
+  title: string | null
+  youtube_video_id: string | null
+  youtube_url: string | null
+  status: 'success' | 'failed' | string
+  error_message: string | null
+  created_at: string
+}
+
 const MAX_SHORT_SECONDS = 60
 
 function App() {
@@ -39,6 +51,17 @@ function App() {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
 
   const [auth, setAuth] = useState<AuthStatus | null>(null)
+  const [history, setHistory] = useState<HistoryItem[]>([])
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch(`${API_BASE}/uploads`, { credentials: 'include' })
+      if (!res.ok) return
+      setHistory(await res.json())
+    } catch {
+      // ignore
+    }
+  }
 
   async function fetchAuth() {
     try {
@@ -52,6 +75,10 @@ function App() {
   useEffect(() => {
     fetchAuth()
   }, [])
+
+  useEffect(() => {
+    if (auth?.authenticated) fetchHistory()
+  }, [auth?.authenticated])
 
   async function onLogout() {
     await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
@@ -109,7 +136,13 @@ function App() {
       setUploadError(err instanceof Error ? err.message : String(err))
     } finally {
       setUploading(false)
+      fetchHistory()
     }
+  }
+
+  function formatDate(iso: string) {
+    const d = new Date(iso)
+    return d.toLocaleString()
   }
 
   const tooLong =
@@ -204,6 +237,46 @@ function App() {
               {result.description && <pre className="caption">{result.description}</pre>}
             </div>
           )}
+
+          <section className="history">
+            <div className="history-head">
+              <h3>Upload history</h3>
+              <button type="button" className="refresh" onClick={fetchHistory}>
+                Refresh
+              </button>
+            </div>
+            {history.length === 0 ? (
+              <p className="muted">No uploads yet.</p>
+            ) : (
+              <ul className="history-list">
+                {history.map((h) => (
+                  <li key={h.id} className={`history-item ${h.status}`}>
+                    <div className="history-row">
+                      <span className={`pill ${h.status}`}>{h.status}</span>
+                      <span className="history-title">
+                        {h.title ?? h.instagram_url}
+                      </span>
+                      <span className="history-date">{formatDate(h.created_at)}</span>
+                    </div>
+                    <div className="history-row history-meta">
+                      {h.uploader && <span>@{h.uploader}</span>}
+                      <a href={h.instagram_url} target="_blank" rel="noreferrer">
+                        Reel
+                      </a>
+                      {h.youtube_url && (
+                        <a href={h.youtube_url} target="_blank" rel="noreferrer">
+                          YouTube
+                        </a>
+                      )}
+                    </div>
+                    {h.error_message && (
+                      <div className="history-error">{h.error_message}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
     </main>

@@ -18,6 +18,17 @@ class OAuthToken(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Upload(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    instagram_url: str
+    uploader: Optional[str] = None
+    title: Optional[str] = None
+    youtube_video_id: Optional[str] = None
+    status: str = Field(index=True)  # "success" | "failed"
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
 
