@@ -146,44 +146,7 @@ h1 {
   font-size: 0.9rem;
 }
 
-.generated {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  background: #f4f4f4;
-  border-radius: 6px;
-}
 
-.generated label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #444;
-}
-
-.generated input,
-.generated textarea {
-  font: inherit;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-weight: 400;
-}
-
-.generated textarea {
-  resize: vertical;
-}
-
-.tags {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #2a6;
-  word-break: break-word;
-}
 
 .success {
   padding: 1rem;

@@ -18,12 +18,6 @@ type UploadResponse = {
   youtube_url: string
 }
 
-type GeneratedCaption = {
-  title: string
-  description: string
-  tags: string[]
-}
-
 type AuthStatus = {
   authenticated: boolean
   email: string | null
@@ -55,10 +49,6 @@ function App() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
-
-  const [generating, setGenerating] = useState(false)
-  const [genError, setGenError] = useState<string | null>(null)
-  const [generated, setGenerated] = useState<GeneratedCaption | null>(null)
 
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -98,32 +88,6 @@ function App() {
   function resetUploadState() {
     setUploadError(null)
     setUploadResult(null)
-    setGenError(null)
-    setGenerated(null)
-  }
-
-  async function onGenerate() {
-    if (!result) return
-    setGenError(null)
-    setGenerating(true)
-    try {
-      const res = await fetch(`${API_BASE}/generate-caption`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caption: result.description,
-          uploader: result.uploader,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Generation failed')
-      setGenerated(data)
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setGenerating(false)
-    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -163,9 +127,6 @@ function App() {
           instagram_url: result.instagram_url,
           uploader: result.uploader,
           caption: result.description,
-          title: generated?.title,
-          description: generated?.description,
-          tags: generated?.tags,
         }),
       })
       const data = await res.json()
@@ -254,72 +215,26 @@ function App() {
                   </a>
                 </div>
               ) : (
-                <>
-                  <div className="upload-row">
-                    <button
-                      type="button"
-                      onClick={onGenerate}
-                      disabled={generating}
-                    >
-                      {generating
-                        ? 'Generating…'
-                        : generated
-                          ? 'Regenerate caption'
-                          : 'Generate caption'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={onUpload}
-                      disabled={uploading || tooLong}
-                    >
-                      {uploading ? 'Uploading to YouTube…' : 'Upload to YouTube'}
-                    </button>
-                    {tooLong && (
-                      <span className="warn">
-                        Video longer than {MAX_SHORT_SECONDS}s — not a Short.
-                      </span>
-                    )}
-                  </div>
-
-                  {genError && <div className="error">Error: {genError}</div>}
-
-                  {generated && (
-                    <div className="generated">
-                      <label>
-                        Title
-                        <input
-                          type="text"
-                          maxLength={100}
-                          value={generated.title}
-                          onChange={(e) =>
-                            setGenerated({ ...generated, title: e.target.value })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Description
-                        <textarea
-                          rows={6}
-                          value={generated.description}
-                          onChange={(e) =>
-                            setGenerated({ ...generated, description: e.target.value })
-                          }
-                        />
-                      </label>
-                      {generated.tags.length > 0 && (
-                        <p className="tags">{generated.tags.map((t) => `#${t}`).join(' ')}</p>
-                      )}
-                    </div>
+                <div className="upload-row">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={onUpload}
+                    disabled={uploading || tooLong}
+                  >
+                    {uploading ? 'Uploading to YouTube…' : 'Upload to YouTube'}
+                  </button>
+                  {tooLong && (
+                    <span className="warn">
+                      Video longer than {MAX_SHORT_SECONDS}s — not a Short.
+                    </span>
                   )}
-                </>
+                </div>
               )}
 
               {uploadError && <div className="error">Error: {uploadError}</div>}
 
-              {!generated && result.description && (
-                <pre className="caption">{result.description}</pre>
-              )}
+              {result.description && <pre className="caption">{result.description}</pre>}
             </div>
           )}
 
