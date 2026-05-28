@@ -1,0 +1,32 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).parent
+load_dotenv(BASE_DIR / ".env")
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", "http://localhost:8787/auth/google/callback"
+)
+
+TOKEN_ENC_KEY = os.getenv("TOKEN_ENC_KEY", "")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-only-change-me")
+
+ALLOWED_EMAIL = os.getenv("ALLOWED_EMAIL", "").lower().strip()
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+IG_COOKIES_PATH = os.getenv("IG_COOKIES_PATH", str(BASE_DIR / "ig_cookies.txt"))
+
+DB_PATH = BASE_DIR / "instoob.db"
+DOWNLOAD_DIR = BASE_DIR / "downloads"
+DOWNLOAD_DIR.mkdir(exist_ok=True)
+
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+]

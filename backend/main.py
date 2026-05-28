@@ -1,36 +1,54 @@
 import os
-import uuid
 import re
+import uuid
 from pathlib import Path
 
 import certifi
 
+import config
+
 os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")  # localhost http callback
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-BASE_DIR = Path(__file__).parent
-DOWNLOAD_DIR = BASE_DIR / "downloads"
-DOWNLOAD_DIR.mkdir(exist_ok=True)
+from auth import require_session, router as auth_router
+from db import init_db
 
 REEL_PATTERN = re.compile(r"https?://(?:www\.)?instagram\.com/reels?/[\w-]+", re.I)
 
 app = FastAPI(title="Instoob")
 
 app.add_middleware(
+    SessionMiddleware,
+    secret_key=config.SESSION_SECRET,
+    same_site="lax",
+    https_only=False,
+)
+
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[config.FRONTEND_ORIGIN],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.mount("/videos", StaticFiles(directory=str(DOWNLOAD_DIR)), name="videos")
+app.mount("/videos", StaticFiles(directory=str(config.DOWNLOAD_DIR)), name="videos")
+
+app.include_router(auth_router)
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    init_db()
 
 
 class DownloadRequest(BaseModel):
@@ -45,12 +63,12 @@ class DownloadResponse(BaseModel):
 
 
 @app.post("/download", response_model=DownloadResponse)
-def download_reel(req: DownloadRequest):
+def download_reel(req: DownloadRequest, _: str = Depends(require_session)):
     if not REEL_PATTERN.search(req.url):
         raise HTTPException(status_code=400, detail="Not a valid Instagram Reel URL")
 
     job_id = uuid.uuid4().hex
-    outtmpl = str(DOWNLOAD_DIR / f"{job_id}.%(ext)s")
+    outtmpl = str(config.DOWNLOAD_DIR / f"{job_id}.%(ext)s")
 
     ydl_opts = {
         "outtmpl": outtmpl,
@@ -60,7 +78,7 @@ def download_reel(req: DownloadRequest):
         "noprogress": True,
     }
 
-    cookies_path = BASE_DIR / "ig_cookies.txt"
+    cookies_path = Path(config.IG_COOKIES_PATH)
     if cookies_path.exists():
         ydl_opts["cookiefile"] = str(cookies_path)
 
