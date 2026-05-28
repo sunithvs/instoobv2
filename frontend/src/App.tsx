@@ -5,9 +5,17 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8787'
 
 type DownloadResponse = {
   video_url: string
-  title?: string | null
-  uploader?: string | null
-  description?: string | null
+  filename: string
+  duration: number | null
+  title: string | null
+  uploader: string | null
+  description: string | null
+  instagram_url: string
+}
+
+type UploadResponse = {
+  youtube_video_id: string
+  youtube_url: string
 }
 
 type AuthStatus = {
@@ -18,11 +26,18 @@ type AuthStatus = {
   channel_id: string | null
 }
 
+const MAX_SHORT_SECONDS = 60
+
 function App() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<DownloadResponse | null>(null)
+
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+
   const [auth, setAuth] = useState<AuthStatus | null>(null)
 
   async function fetchAuth() {
@@ -43,10 +58,16 @@ function App() {
     fetchAuth()
   }
 
+  function resetUploadState() {
+    setUploadError(null)
+    setUploadResult(null)
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setResult(null)
+    resetUploadState()
     setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/download`, {
@@ -64,6 +85,35 @@ function App() {
       setLoading(false)
     }
   }
+
+  async function onUpload() {
+    if (!result) return
+    resetUploadState()
+    setUploading(true)
+    try {
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: result.filename,
+          instagram_url: result.instagram_url,
+          uploader: result.uploader,
+          caption: result.description,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail ?? 'Upload failed')
+      setUploadResult(data)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const tooLong =
+    result?.duration != null && result.duration > MAX_SHORT_SECONDS
 
   return (
     <main className="container">
@@ -109,6 +159,9 @@ function App() {
             <div className="result">
               {result.title && <h2>{result.title}</h2>}
               {result.uploader && <p className="uploader">@{result.uploader}</p>}
+              {result.duration != null && (
+                <p className="meta">Duration: {Math.round(result.duration)}s</p>
+              )}
               <video
                 src={`${API_BASE}${result.video_url}`}
                 controls
@@ -120,6 +173,34 @@ function App() {
                   Download MP4
                 </a>
               </p>
+
+              {uploadResult ? (
+                <div className="success">
+                  Uploaded.{' '}
+                  <a href={uploadResult.youtube_url} target="_blank" rel="noreferrer">
+                    Open on YouTube
+                  </a>
+                </div>
+              ) : (
+                <div className="upload-row">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={onUpload}
+                    disabled={uploading || tooLong}
+                  >
+                    {uploading ? 'Uploading to YouTube…' : 'Upload to YouTube'}
+                  </button>
+                  {tooLong && (
+                    <span className="warn">
+                      Video longer than {MAX_SHORT_SECONDS}s — not a Short.
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {uploadError && <div className="error">Error: {uploadError}</div>}
+
               {result.description && <pre className="caption">{result.description}</pre>}
             </div>
           )}

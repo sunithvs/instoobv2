@@ -114,3 +114,47 @@ h1 {
   font-family: inherit;
   font-size: 0.95rem;
 }
+
+.meta {
+  color: #666;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.upload-row .btn-primary {
+  margin-top: 0;
+  padding: 0.6rem 1.25rem;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.upload-row .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.warn {
+  color: #b15a00;
+  font-size: 0.9rem;
+}
+
+.success {
+  padding: 1rem;
+  background: #eaf7ea;
+  border: 1px solid #b8e0b8;
+  color: #1d6b1d;
+  border-radius: 6px;
+}
+
+.success a {
+  color: #1d6b1d;
+  font-weight: 600;
+}
