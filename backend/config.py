@@ -20,6 +20,15 @@ FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
 IG_COOKIES_PATH = os.getenv("IG_COOKIES_PATH", str(BASE_DIR / "ig_cookies.txt"))
 
+LLM_ENABLED = os.getenv("LLM_ENABLED", "true").lower() == "true"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+FACE_IMAGE_PATH = os.getenv(
+    "FACE_IMAGE_PATH", str(BASE_DIR.parent / "frontend" / "public" / "face.png")
+)
+
 DB_PATH = BASE_DIR / "instoob.db"
 DOWNLOAD_DIR = BASE_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(exist_ok=True)

@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import uuid
@@ -25,6 +26,7 @@ from sqlmodel import select
 
 from auth import get_credentials, require_session, router as auth_router
 from db import Upload, get_session, init_db
+from llm import LLMError, get_provider
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -78,11 +80,36 @@ class UploadRequest(BaseModel):
     instagram_url: str
     uploader: str | None = None
     caption: str | None = None
+    title: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    thumbnail_filename: str | None = None
 
 
 class UploadResponse(BaseModel):
     youtube_video_id: str
     youtube_url: str
+
+
+class GenerateCaptionRequest(BaseModel):
+    caption: str | None = None
+    uploader: str | None = None
+
+
+class GenerateCaptionResponse(BaseModel):
+    title: str
+    description: str
+    tags: list[str]
+
+
+class GenerateThumbnailRequest(BaseModel):
+    title: str
+    description: str | None = None
+
+
+class GenerateThumbnailResponse(BaseModel):
+    thumbnail_url: str
+    filename: str
 
 
 @app.post("/download", response_model=DownloadResponse)
@@ -131,18 +158,53 @@ def download_reel(req: DownloadRequest, _: str = Depends(require_session)):
     )
 
 
-def _build_youtube_metadata(caption: str | None, uploader: str | None, source_url: str):
+YOUTUBE_SYSTEM_PROMPT = (
+    "You are a YouTube Shorts optimization expert. Rewrite an Instagram reel "
+    "caption into metadata that performs well on YouTube. Swap Instagram "
+    "vocabulary for YouTube equivalents (follow -> subscribe, link in bio -> "
+    "link in description, reel -> video, double tap -> like, DM -> comment, "
+    "save this post -> save this video). Do NOT mention Instagram or the "
+    "original creator. Return strict JSON with keys: "
+    '"title" (string, <=100 chars, keyword-rich), '
+    '"description" (string, ending with a "Like & Subscribe" call to action '
+    'and the "#Shorts" tag), '
+    '"tags" (array of <=30 lowercase keyword strings).'
+)
+
+
+def _fallback_metadata(caption: str | None, uploader: str | None):
     cap = (caption or "").strip()
     if cap:
         first_line = cap.replace("\r", "").split("\n", 1)[0].strip()
-        title = (first_line or cap)[:70].strip() or f"Reel by @{uploader or 'unknown'}"
-        attribution = f"\n\nOriginally posted by @{uploader or 'unknown'} on Instagram: {source_url}"
-        description = f"{cap}{attribution}\n\n#Shorts"
+        title = (first_line or cap)[:100].strip() or f"Video by @{uploader or 'unknown'}"
+        description = f"{cap}\n\n#Shorts"
     else:
-        title = f"Reel by @{uploader or 'unknown'}"
-        description = f"{source_url}\n\n#Shorts"
+        title = f"Video by @{uploader or 'unknown'}"
+        description = "#Shorts"
     tags = list({h.lower() for h in HASHTAG_PATTERN.findall(cap)})[:30]
     return title, description, tags
+
+
+def _build_youtube_metadata(caption: str | None, uploader: str | None):
+    provider = get_provider()
+    if provider is None:
+        return _fallback_metadata(caption, uploader)
+
+    try:
+        raw = provider.generate(
+            system=YOUTUBE_SYSTEM_PROMPT,
+            prompt=(caption or "").strip() or f"A short video by @{uploader or 'unknown'}",
+            json_mode=True,
+        )
+        data = json.loads(raw)
+        title = str(data["title"]).strip()[:100]
+        description = str(data["description"]).strip()
+        tags = [str(t).lower().strip() for t in data.get("tags", []) if str(t).strip()][:30]
+        if not title or not description:
+            raise ValueError("empty title/description from LLM")
+        return title, description, tags
+    except (LLMError, json.JSONDecodeError, KeyError, ValueError, TypeError):
+        return _fallback_metadata(caption, uploader)
 
 
 def _record_upload(
@@ -175,9 +237,12 @@ def upload_to_youtube(req: UploadRequest, _: str = Depends(require_session)):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
-    title, description, tags = _build_youtube_metadata(
-        req.caption, req.uploader, req.instagram_url
-    )
+    if req.title and req.description:
+        title = req.title[:100]
+        description = req.description
+        tags = [t.lower().strip() for t in (req.tags or []) if t.strip()][:30]
+    else:
+        title, description, tags = _build_youtube_metadata(req.caption, req.uploader)
 
     video_id: str | None = None
     error: str | None = None
@@ -247,6 +312,12 @@ def upload_to_youtube(req: UploadRequest, _: str = Depends(require_session)):
         youtube_video_id=video_id,
         youtube_url=f"https://youtube.com/shorts/{video_id}",
     )
+
+
+@app.post("/generate-caption", response_model=GenerateCaptionResponse)
+def generate_caption(req: GenerateCaptionRequest, _: str = Depends(require_session)):
+    title, description, tags = _build_youtube_metadata(req.caption, req.uploader)
+    return GenerateCaptionResponse(title=title, description=description, tags=tags)
 
 
 class UploadHistoryItem(BaseModel):
