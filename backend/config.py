@@ -25,9 +25,12 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-DB_PATH = BASE_DIR / "instoob.db"
-DOWNLOAD_DIR = BASE_DIR / "downloads"
-DOWNLOAD_DIR.mkdir(exist_ok=True)
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+DB_PATH = Path(os.getenv("DB_PATH", str(DATA_DIR / "instoob.db")))
+DOWNLOAD_DIR = Path(os.getenv("DOWNLOAD_DIR", str(DATA_DIR / "downloads")))
+DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",

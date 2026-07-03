@@ -1,0 +1,14 @@
+services:
+  backend:
+    build: ./backend
+    container_name: instoob-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8787:8787"
+    volumes:
+      - instoob-data:/data
+    restart: unless-stopped
+
+volumes:
+  instoob-data:
