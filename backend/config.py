@@ -18,6 +18,20 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-only-change-me")
 ALLOWED_EMAIL = os.getenv("ALLOWED_EMAIL", "").lower().strip()
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
+# CORS allowed origins. Override via FRONTEND_ORIGINS (comma-separated).
+_DEFAULT_ORIGINS = [
+    "http://localhost:5173",
+    "https://instoobv2.vercel.app",
+    "http://instoob.radr.in",
+]
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("FRONTEND_ORIGINS", ",".join(_DEFAULT_ORIGINS)).split(",")
+    if o.strip()
+]
+if FRONTEND_ORIGIN not in CORS_ORIGINS:
+    CORS_ORIGINS.append(FRONTEND_ORIGIN)
+
 IG_COOKIES_PATH = os.getenv("IG_COOKIES_PATH", str(BASE_DIR / "ig_cookies.txt"))
 
 LLM_ENABLED = os.getenv("LLM_ENABLED", "true").lower() == "true"
