@@ -39,8 +39,8 @@ app = FastAPI(title="Instoob")
 app.add_middleware(
     SessionMiddleware,
     secret_key=config.SESSION_SECRET,
-    same_site="lax",
-    https_only=False,
+    same_site=config.SESSION_COOKIE_SAMESITE,
+    https_only=config.SESSION_COOKIE_SECURE,
 )
 
 app.add_middleware(
@@ -62,6 +62,11 @@ def _startup() -> None:
     print(f"[config] GOOGLE_REDIRECT_URI = {config.GOOGLE_REDIRECT_URI}", flush=True)
     print(f"[config] FRONTEND_ORIGIN     = {config.FRONTEND_ORIGIN}", flush=True)
     print(f"[config] CORS_ORIGINS        = {config.CORS_ORIGINS}", flush=True)
+    print(
+        f"[config] COOKIE samesite={config.SESSION_COOKIE_SAMESITE} "
+        f"secure={config.SESSION_COOKIE_SECURE}",
+        flush=True,
+    )
 
 
 class DownloadRequest(BaseModel):

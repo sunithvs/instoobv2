@@ -15,6 +15,11 @@ GOOGLE_REDIRECT_URI = os.getenv(
 TOKEN_ENC_KEY = os.getenv("TOKEN_ENC_KEY", "")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-only-change-me")
 
+# Cross-site cookie: prod (frontend on a different domain) needs
+# SESSION_COOKIE_SAMESITE=none + SESSION_COOKIE_SECURE=true (HTTPS only).
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "lax").lower()
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+
 ALLOWED_EMAIL = os.getenv("ALLOWED_EMAIL", "").lower().strip()
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
