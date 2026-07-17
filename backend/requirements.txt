@@ -17,4 +17,4 @@ requests-oauthlib==2.0.0
 sqlmodel==0.0.38
 starlette==1.2.0
 uvicorn==0.48.0
-yt-dlp==2026.3.17
+yt-dlp
