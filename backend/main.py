@@ -67,6 +67,12 @@ def _startup() -> None:
         f"secure={config.SESSION_COOKIE_SECURE}",
         flush=True,
     )
+    _ck = Path(config.IG_COOKIES_PATH)
+    print(
+        f"[config] IG_COOKIES_PATH = {_ck} (exists={_ck.exists()}, "
+        f"size={_ck.stat().st_size if _ck.exists() else 0})",
+        flush=True,
+    )
 
 
 class DownloadRequest(BaseModel):

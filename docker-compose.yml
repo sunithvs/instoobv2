@@ -8,6 +8,8 @@ services:
       - "8787:8787"
     volumes:
       - instoob-data:/data
+      # Instagram cookies for yt-dlp (Netscape format). File must exist on host.
+      - ./backend/ig_cookies.txt:/app/ig_cookies.txt:ro
     restart: unless-stopped
 
 volumes:
