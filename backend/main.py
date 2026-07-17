@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import uuid
 from pathlib import Path
 
@@ -131,9 +132,14 @@ def download_reel(req: DownloadRequest, _: str = Depends(require_session)):
         "noprogress": True,
     }
 
-    cookies_path = Path(config.IG_COOKIES_PATH)
-    if cookies_path.exists():
-        ydl_opts["cookiefile"] = str(cookies_path)
+    # yt-dlp rewrites the cookie file on exit, so it can't be the read-only
+    # mounted source. Copy to a writable temp and hand that to yt-dlp.
+    cookies_src = Path(config.IG_COOKIES_PATH)
+    cookies_tmp: Path | None = None
+    if cookies_src.exists():
+        cookies_tmp = config.DOWNLOAD_DIR / f"{job_id}.cookies.txt"
+        shutil.copyfile(cookies_src, cookies_tmp)
+        ydl_opts["cookiefile"] = str(cookies_tmp)
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
@@ -141,6 +147,9 @@ def download_reel(req: DownloadRequest, _: str = Depends(require_session)):
             filename = ydl.prepare_filename(info)
     except DownloadError as e:
         raise HTTPException(status_code=502, detail=f"Download failed: {e}")
+    finally:
+        if cookies_tmp is not None:
+            cookies_tmp.unlink(missing_ok=True)
 
     final_path = Path(filename)
     if not final_path.exists():
