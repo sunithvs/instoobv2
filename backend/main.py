@@ -59,9 +59,9 @@ app.include_router(auth_router)
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
-    print(f"[config] GOOGLE_REDIRECT_URI = {config.GOOGLE_REDIRECT_URI}")
-    print(f"[config] FRONTEND_ORIGIN     = {config.FRONTEND_ORIGIN}")
-    print(f"[config] CORS_ORIGINS        = {config.CORS_ORIGINS}")
+    print(f"[config] GOOGLE_REDIRECT_URI = {config.GOOGLE_REDIRECT_URI}", flush=True)
+    print(f"[config] FRONTEND_ORIGIN     = {config.FRONTEND_ORIGIN}", flush=True)
+    print(f"[config] CORS_ORIGINS        = {config.CORS_ORIGINS}", flush=True)
 
 
 class DownloadRequest(BaseModel):
